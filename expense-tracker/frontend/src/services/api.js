@@ -1,13 +1,20 @@
 import axios from 'axios';
 
+// Dynamically resolve base API URL for Vercel production deployment or local Vite proxy
+const getBaseURL = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return '/api';
+  return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/$/, '')}/api`;
+};
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: getBaseURL(),
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request Interceptor: Attach JWT Token
+// Request Interceptor: Attach JWT Bearer Token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
