@@ -116,7 +116,7 @@ Ensure Java 17+ and Maven are installed:
 mvn clean install
 mvn spring-boot:run
 ```
-The backend server starts on `http://localhost:8080`.
+The backend server is deployed at `https://expense-tracker-backend-8adn.onrender.com`.
 
 ### 2. Run Frontend (React / Vite)
 Navigate to the `frontend/` directory:
@@ -125,7 +125,7 @@ cd frontend
 npm install
 npm run dev
 ```
-The React frontend starts on `http://localhost:3000` and proxies API requests to `http://localhost:8080`.
+The React frontend starts on `http://localhost:3000` during local development and connects to the deployed backend at `https://expense-tracker-backend-8adn.onrender.com`.
 
 ---
 
