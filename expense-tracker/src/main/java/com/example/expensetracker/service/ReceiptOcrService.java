@@ -9,11 +9,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.awt.image.RescaleOp;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -27,7 +29,7 @@ public class ReceiptOcrService {
 
     public ReceiptScanDto scanReceipt(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            return new ReceiptScanDto(null, null, LocalDate.now(), "Other", "", 0.0, false, "Uploaded file is empty");
+            return new ReceiptScanDto(null, null, LocalDate.now(), "Other", "", 0.0, false, "Uploaded receipt image is empty");
         }
 
         String rawText = "";
@@ -35,27 +37,74 @@ public class ReceiptOcrService {
 
         try {
             InputStream is = file.getInputStream();
-            BufferedImage bufferedImage = ImageIO.read(is);
-            if (bufferedImage != null) {
+            BufferedImage originalImage = ImageIO.read(is);
+            if (originalImage != null) {
+                // Preprocess image (Grayscale, Contrast & Scaling) to optimize OCR accuracy
+                BufferedImage processedImage = preprocessImage(originalImage);
+
                 ITesseract tesseract = new Tesseract();
-                // Set tessdata path if system property is set or standard fallback
                 String tessDataPath = System.getenv("TESSDATA_PREFIX");
-                if (tessDataPath != null && !tessDataPath.isEmpty()) {
-                    tesseract.setDatapath(tessDataPath);
+                if (tessDataPath != null && !tessDataPath.trim().isEmpty()) {
+                    tesseract.setDatapath(tessDataPath.trim());
                 }
-                rawText = tesseract.doOCR(bufferedImage);
-                ocrSuccess = rawText != null && !rawText.trim().isEmpty();
+
+                rawText = tesseract.doOCR(processedImage);
+                if (rawText != null && !rawText.trim().isEmpty()) {
+                    ocrSuccess = true;
+                } else {
+                    // Try OCR on original image if processed image produced empty result
+                    rawText = tesseract.doOCR(originalImage);
+                    ocrSuccess = rawText != null && !rawText.trim().isEmpty();
+                }
             }
         } catch (Throwable t) {
-            logger.warn("Tess4J OCR execution unavailable or failed: {}. Falling back to image text heuristic parser.", t.getMessage());
+            logger.warn("Tess4J OCR execution unavailable or failed: {}. Utilizing heuristic text parsing.", t.getMessage());
         }
 
-        // If Tess4J wasn't able to extract text (e.g. missing native libraries on Render host), provide clean default fallback
         if (rawText == null || rawText.trim().isEmpty()) {
             rawText = "Receipt image processed (" + file.getOriginalFilename() + ")";
         }
 
         return parseReceiptText(rawText, ocrSuccess);
+    }
+
+    /**
+     * Image Preprocessing pipeline:
+     * 1. Scaling small images for better glyph resolution.
+     * 2. Grayscale conversion.
+     * 3. Contrast adjustment.
+     */
+    private BufferedImage preprocessImage(BufferedImage img) {
+        try {
+            int width = img.getWidth();
+            int height = img.getHeight();
+
+            // Upscale if small image (< 1000px width)
+            if (width < 1000) {
+                int newWidth = width * 2;
+                int newHeight = height * 2;
+                BufferedImage resized = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_BYTE_GRAY);
+                Graphics2D g = resized.createGraphics();
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.drawImage(img, 0, 0, newWidth, newHeight, null);
+                g.dispose();
+                img = resized;
+            } else {
+                // Convert to Grayscale
+                BufferedImage grayscale = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+                Graphics2D g = grayscale.createGraphics();
+                g.drawImage(img, 0, 0, null);
+                g.dispose();
+                img = grayscale;
+            }
+
+            // Contrast enhancement (RescaleOp: scale factor 1.25, offset 10)
+            RescaleOp rescaleOp = new RescaleOp(1.25f, 10.0f, null);
+            return rescaleOp.filter(img, null);
+        } catch (Exception e) {
+            logger.debug("Image preprocessing skipped due to: {}", e.getMessage());
+            return img;
+        }
     }
 
     public ReceiptScanDto parseReceiptText(String rawText, boolean ocrSuccess) {
@@ -64,10 +113,17 @@ public class ReceiptOcrService {
         LocalDate date = extractDate(rawText);
         String category = guessCategory(rawText, merchantName);
 
-        boolean success = extractedAmount != null || (merchantName != null && !merchantName.isEmpty());
-        String message = extractedAmount != null 
-                ? "Receipt scanned successfully." 
-                : "Receipt scanned, but could not detect total amount confidently. Please confirm details below.";
+        boolean amountDetected = (extractedAmount != null && extractedAmount.compareTo(BigDecimal.ZERO) > 0);
+        boolean merchantDetected = (merchantName != null && !merchantName.trim().isEmpty());
+
+        String message;
+        if (amountDetected && merchantDetected) {
+            message = "Receipt scanned successfully.";
+        } else if (amountDetected) {
+            message = "Total amount extracted. Please verify merchant details.";
+        } else {
+            message = "Could not confidently detect total amount. Please enter the amount manually.";
+        }
 
         return new ReceiptScanDto(
                 extractedAmount,
@@ -75,8 +131,8 @@ public class ReceiptOcrService {
                 date != null ? date : LocalDate.now(),
                 category,
                 rawText.trim(),
-                ocrSuccess ? 0.85 : 0.50,
-                success,
+                ocrSuccess ? 0.90 : 0.60,
+                amountDetected || merchantDetected,
                 message
         );
     }
@@ -84,49 +140,75 @@ public class ReceiptOcrService {
     private BigDecimal extractTotalAmount(String text) {
         if (text == null || text.trim().isEmpty()) return null;
 
-        // 1. Look for explicit total keywords
-        Pattern totalPattern = Pattern.compile(
-                "(?i)(?:total|amount due|grand total|net total|payable|sum|balance due)\\D*?([₹$€£]?\\s*\\d{1,6}(?:[\\.,]\\d{2})?)",
+        // 1. Priority: Match Explicit Grand Total / Total Payable labels
+        Pattern grandTotalPattern = Pattern.compile(
+                "(?i)(?:grand total|total amount|amount due|balance due|net total|total payable|payable|to pay)\\D*?([₹$€£]|rs\\.?|inr)?\\s*(\\d{1,6}(?:[\\.,]\\d{2})?)",
                 Pattern.CASE_INSENSITIVE
         );
-        Matcher matcher = totalPattern.matcher(text);
-        List<BigDecimal> keywordAmounts = new ArrayList<>();
+        Matcher matcher = grandTotalPattern.matcher(text);
+        List<BigDecimal> highPriorityAmounts = new ArrayList<>();
 
         while (matcher.find()) {
-            String valStr = matcher.group(1).replaceAll("[^0-9\\.]", "");
-            try {
-                if (!valStr.isEmpty()) {
-                    BigDecimal bd = new BigDecimal(valStr);
+            String numGroup = matcher.group(2);
+            if (numGroup != null && !numGroup.isEmpty()) {
+                String cleanNum = numGroup.replaceAll("[^0-9\\.]", "");
+                try {
+                    BigDecimal bd = new BigDecimal(cleanNum);
                     if (bd.compareTo(BigDecimal.ZERO) > 0) {
-                        keywordAmounts.add(bd);
+                        highPriorityAmounts.add(bd);
                     }
-                }
-            } catch (Exception ignored) {}
+                } catch (Exception ignored) {}
+            }
         }
 
-        if (!keywordAmounts.isEmpty()) {
-            // Return highest total found near keyword
-            return keywordAmounts.stream().max(BigDecimal::compareTo).orElse(null);
+        if (!highPriorityAmounts.isEmpty()) {
+            return highPriorityAmounts.stream().max(BigDecimal::compareTo).orElse(null);
         }
 
-        // 2. Fallback: Find all monetary amounts (e.g., 250.00, 1500)
-        Pattern numberPattern = Pattern.compile("(?<=\\s|^)[₹$€£]?\\s*(\\d{1,6}\\.\\d{2})(?=\\s|$)", Pattern.MULTILINE);
-        Matcher numMatcher = numberPattern.matcher(text);
-        List<BigDecimal> allAmounts = new ArrayList<>();
+        // 2. Secondary: Match general "TOTAL" keyword
+        Pattern generalTotalPattern = Pattern.compile(
+                "(?i)(?:total|sum|amt)\\D*?([₹$€£]|rs\\.?|inr)?\\s*(\\d{1,6}(?:[\\.,]\\d{2})?)",
+                Pattern.CASE_INSENSITIVE
+        );
+        Matcher genMatcher = generalTotalPattern.matcher(text);
+        List<BigDecimal> genAmounts = new ArrayList<>();
+
+        while (genMatcher.find()) {
+            String numGroup = genMatcher.group(2);
+            if (numGroup != null && !numGroup.isEmpty()) {
+                String cleanNum = numGroup.replaceAll("[^0-9\\.]", "");
+                try {
+                    BigDecimal bd = new BigDecimal(cleanNum);
+                    if (bd.compareTo(BigDecimal.ZERO) > 0) {
+                        genAmounts.add(bd);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        if (!genAmounts.isEmpty()) {
+            return genAmounts.stream().max(BigDecimal::compareTo).orElse(null);
+        }
+
+        // 3. Fallback: Find standalone decimal numbers with 2 decimal places (e.g., 450.00, 1250.50)
+        Pattern standalonePattern = Pattern.compile("(?:^|\\s)(?:[₹$€£]|rs\\.?|inr)?\\s*(\\d{1,6}\\.\\d{2})(?:\\s|$)", Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
+        Matcher numMatcher = standalonePattern.matcher(text);
+        List<BigDecimal> standaloneAmounts = new ArrayList<>();
 
         while (numMatcher.find()) {
             try {
                 BigDecimal bd = new BigDecimal(numMatcher.group(1));
                 if (bd.compareTo(BigDecimal.ZERO) > 0) {
-                    allAmounts.add(bd);
+                    standaloneAmounts.add(bd);
                 }
             } catch (Exception ignored) {}
         }
 
-        if (!allAmounts.isEmpty()) {
-            return allAmounts.stream().max(BigDecimal::compareTo).orElse(null);
+        if (!standaloneAmounts.isEmpty()) {
+            return standaloneAmounts.stream().max(BigDecimal::compareTo).orElse(null);
         }
 
+        // Never return 0 if amount is unreadable
         return null;
     }
 
@@ -134,18 +216,19 @@ public class ReceiptOcrService {
         if (text == null || text.trim().isEmpty()) return "Store Purchase";
 
         String[] lines = text.split("\\r?\\n");
-        for (String line : lines) {
-            String trimmed = line.trim();
+        for (int i = 0; i < Math.min(lines.length, 8); i++) {
+            String trimmed = lines[i].trim();
             if (trimmed.length() < 3) continue;
 
-            String lower = trimmed.toLowerCase();
+            String lower = trimmed.toLowerCase(Locale.ENGLISH);
+            // Skip common receipt header words
             if (lower.contains("receipt") || lower.contains("tax invoice") || lower.contains("welcome") ||
                 lower.contains("cash memo") || lower.contains("customer copy") || lower.contains("date") ||
-                lower.contains("tel:") || lower.contains("phone")) {
+                lower.contains("tel:") || lower.contains("phone") || lower.contains("gst") ||
+                lower.contains("thank you") || lower.contains("bill no")) {
                 continue;
             }
 
-            // Clean special chars
             String cleanName = trimmed.replaceAll("[^a-zA-Z0-9\\s&'-]", "").trim();
             if (cleanName.length() >= 3) {
                 return cleanName;
@@ -157,7 +240,7 @@ public class ReceiptOcrService {
     private LocalDate extractDate(String text) {
         if (text == null || text.trim().isEmpty()) return LocalDate.now();
 
-        // Standard ISO date (YYYY-MM-DD)
+        // ISO format (YYYY-MM-DD)
         Pattern isoPattern = Pattern.compile("\\b(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})\\b");
         Matcher isoMatcher = isoPattern.matcher(text);
         if (isoMatcher.find()) {
@@ -191,7 +274,7 @@ public class ReceiptOcrService {
             combined.contains("mcdonald") || combined.contains("burger") || combined.contains("pizza") ||
             combined.contains("bakery") || combined.contains("food") || combined.contains("dining") ||
             combined.contains("swiggy") || combined.contains("zomato") || combined.contains("dominos") ||
-            combined.contains("kfc") || combined.contains("starbucks")) {
+            combined.contains("kfc") || combined.contains("starbucks") || combined.contains("diner")) {
             return "Food";
         }
 
@@ -204,7 +287,8 @@ public class ReceiptOcrService {
 
         if (combined.contains("amazon") || combined.contains("walmart") || combined.contains("target") ||
             combined.contains("mart") || combined.contains("supermarket") || combined.contains("store") ||
-            combined.contains("apparel") || combined.contains("fashion") || combined.contains("mall")) {
+            combined.contains("apparel") || combined.contains("fashion") || combined.contains("mall") ||
+            combined.contains("retail") || combined.contains("clothing")) {
             return "Shopping";
         }
 
@@ -221,7 +305,8 @@ public class ReceiptOcrService {
         }
 
         if (combined.contains("cinema") || combined.contains("movie") || combined.contains("pvr") ||
-            combined.contains("theater") || combined.contains("event") || combined.contains("game")) {
+            combined.contains("theater") || combined.contains("event") || combined.contains("game") ||
+            combined.contains("ticket")) {
             return "Entertainment";
         }
 
