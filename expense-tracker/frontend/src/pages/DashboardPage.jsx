@@ -11,7 +11,8 @@ import {
   Plus,
   FileText,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  RefreshCw
 } from 'lucide-react';
 import {
   PieChart,
@@ -47,10 +48,10 @@ const DashboardPage = () => {
     setLoading(true);
     try {
       const [sumRes, catRes, trendRes, txRes] = await Promise.all([
-        api.get(`/dashboard/summary?period=${period}`),
-        api.get(`/dashboard/category-summary?period=${period}`),
-        api.get('/dashboard/trend'),
-        api.get('/transactions'),
+        api.get(`/dashboard/summary?period=${period}`).catch(() => ({ success: false })),
+        api.get(`/dashboard/category-summary?period=${period}`).catch(() => ({ success: false })),
+        api.get('/dashboard/trend').catch(() => ({ success: false })),
+        api.get('/transactions').catch(() => ({ success: false })),
       ]);
 
       if (sumRes.success) setSummary(sumRes.data);
@@ -72,7 +73,7 @@ const DashboardPage = () => {
         onTransactionAdded={() => fetchDashboardData()}
       />
 
-      {/* Header & Period Filter */}
+      {/* Page Header (Renders instantly < 1s) */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Dashboard Overview</h1>
@@ -101,154 +102,168 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {loading ? (
-        <div className="loading-container">Loading dashboard metrics...</div>
-      ) : (
-        <>
-          {/* KPI Summary Cards */}
-          <div className="kpi-grid">
-            <div className="kpi-card">
-              <div className="kpi-icon income"><Wallet size={24} /></div>
-              <div>
-                <div className="kpi-label">Total Income</div>
-                <div className="kpi-value">₹{summary?.totalIncome?.toLocaleString() || '0'}</div>
-              </div>
+      {/* KPI Summary Cards Grid */}
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-icon income"><Wallet size={24} /></div>
+          <div>
+            <div className="kpi-label">Total Income</div>
+            <div className="kpi-value">
+              {loading && !summary ? <span className="skeleton-line" /> : `₹${summary?.totalIncome?.toLocaleString() || '0'}`}
             </div>
+          </div>
+        </div>
 
-            <div className="kpi-card">
-              <div className="kpi-icon expense"><TrendingDown size={24} /></div>
-              <div>
-                <div className="kpi-label">Total Expenses</div>
-                <div className="kpi-value">₹{summary?.totalExpenses?.toLocaleString() || '0'}</div>
-              </div>
+        <div className="kpi-card">
+          <div className="kpi-icon expense"><TrendingDown size={24} /></div>
+          <div>
+            <div className="kpi-label">Total Expenses</div>
+            <div className="kpi-value">
+              {loading && !summary ? <span className="skeleton-line" /> : `₹${summary?.totalExpenses?.toLocaleString() || '0'}`}
             </div>
+          </div>
+        </div>
 
-            <div className="kpi-card">
-              <div className="kpi-icon balance"><Scale size={24} /></div>
-              <div>
-                <div className="kpi-label">Current Balance</div>
-                <div className="kpi-value">₹{summary?.currentBalance?.toLocaleString() || '0'}</div>
-              </div>
+        <div className="kpi-card">
+          <div className="kpi-icon balance"><Scale size={24} /></div>
+          <div>
+            <div className="kpi-label">Current Balance</div>
+            <div className="kpi-value">
+              {loading && !summary ? <span className="skeleton-line" /> : `₹${summary?.currentBalance?.toLocaleString() || '0'}`}
             </div>
+          </div>
+        </div>
 
-            <div className="kpi-card">
-              <div className="kpi-icon savings"><PiggyBank size={24} /></div>
-              <div>
-                <div className="kpi-label">Current Savings</div>
-                <div className="kpi-value">
+        <div className="kpi-card">
+          <div className="kpi-icon savings"><PiggyBank size={24} /></div>
+          <div>
+            <div className="kpi-label">Current Savings</div>
+            <div className="kpi-value">
+              {loading && !summary ? (
+                <span className="skeleton-line" />
+              ) : (
+                <>
                   ₹{summary?.savings?.toLocaleString() || '0'}{' '}
                   <span className="savings-pct">({summary?.savingsPercentage || 0}%)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Charts Row */}
-          <div className="charts-grid">
-            {/* Category Donut Chart */}
-            <div className="card chart-card">
-              <div className="card-header">
-                <h3 className="card-title">Spending by Category</h3>
-              </div>
-              {categories.length === 0 ? (
-                <div className="chart-empty">No expense data for this period</div>
-              ) : (
-                <div style={{ width: '100%', height: 300 }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie
-                        data={categories}
-                        dataKey="amount"
-                        nameKey="category"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={65}
-                        outerRadius={95}
-                        paddingAngle={4}
-                      >
-                        {categories.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(val) => `₹${val.toLocaleString()}`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                </>
               )}
             </div>
-
-            {/* Income vs Expense Trend Bar Chart */}
-            <div className="card chart-card">
-              <div className="card-header">
-                <h3 className="card-title">Income vs Expense Trend</h3>
-              </div>
-              <div style={{ width: '100%', height: 300 }}>
-                <ResponsiveContainer>
-                  <BarChart data={trend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="month" stroke="#475569" />
-                    <YAxis stroke="#475569" />
-                    <Tooltip formatter={(val) => `₹${val.toLocaleString()}`} />
-                    <Legend />
-                    <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="expense" name="Expense" fill="#e11d48" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
 
-          {/* Recent Transactions Table */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Recent Transactions</h3>
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => setIsReceiptModalOpen(true)}>
-                  <FileText size={14} /> Scan Receipt
-                </button>
-                <button className="btn-link" onClick={() => navigate('/calendar')}>View All</button>
-              </div>
-            </div>
-
-            {recentTransactions.length === 0 ? (
-              <div className="empty-state-text">No recent transactions. Add one or scan a receipt to get started!</div>
-            ) : (
-              <div className="table-responsive">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Description</th>
-                      <th>Category</th>
-                      <th>Type</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentTransactions.map((tx) => (
-                      <tr key={tx.id}>
-                        <td>{tx.date}</td>
-                        <td>{tx.description || '-'}</td>
-                        <td><span className="badge badge-info">{tx.category}</span></td>
-                        <td>
-                          {tx.type === 'INCOME' ? (
-                            <span className="tx-type income"><ArrowUpRight size={16} /> Income</span>
-                          ) : (
-                            <span className="tx-type expense"><ArrowDownRight size={16} /> Expense</span>
-                          )}
-                        </td>
-                        <td className={`tx-amount ${tx.type.toLowerCase()}`}>
-                          {tx.type === 'INCOME' ? '+' : '-'}₹{tx.amount?.toLocaleString()}
-                        </td>
-                      </tr>
+      {/* Charts Row */}
+      <div className="charts-grid">
+        {/* Category Donut Chart */}
+        <div className="card chart-card">
+          <div className="card-header">
+            <h3 className="card-title">Spending by Category</h3>
+          </div>
+          {loading && categories.length === 0 ? (
+            <div className="chart-empty"><RefreshCw size={20} className="spinning" /> Loading charts...</div>
+          ) : categories.length === 0 ? (
+            <div className="chart-empty">No expense data for this period</div>
+          ) : (
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={categories}
+                    dataKey="amount"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={65}
+                    outerRadius={95}
+                    paddingAngle={4}
+                  >
+                    {categories.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  </Pie>
+                  <Tooltip formatter={(val) => `₹${val.toLocaleString()}`} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Income vs Expense Trend Bar Chart */}
+        <div className="card chart-card">
+          <div className="card-header">
+            <h3 className="card-title">Income vs Expense Trend</h3>
           </div>
-        </>
-      )}
+          {loading && trend.length === 0 ? (
+            <div className="chart-empty"><RefreshCw size={20} className="spinning" /> Loading trend...</div>
+          ) : (
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <BarChart data={trend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="month" stroke="#475569" />
+                  <YAxis stroke="#475569" />
+                  <Tooltip formatter={(val) => `₹${val.toLocaleString()}`} />
+                  <Legend />
+                  <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expense" name="Expense" fill="#e11d48" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Transactions Table */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Recent Transactions</h3>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setIsReceiptModalOpen(true)}>
+              <FileText size={14} /> Scan Receipt
+            </button>
+            <button className="btn-link" onClick={() => navigate('/calendar')}>View All</button>
+          </div>
+        </div>
+
+        {loading && recentTransactions.length === 0 ? (
+          <div className="empty-state-text"><RefreshCw size={18} className="spinning" /> Loading transactions...</div>
+        ) : recentTransactions.length === 0 ? (
+          <div className="empty-state-text">No recent transactions. Add one or scan a receipt to get started!</div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentTransactions.map((tx) => (
+                  <tr key={tx.id}>
+                    <td>{tx.date}</td>
+                    <td>{tx.description || '-'}</td>
+                    <td><span className="badge badge-info">{tx.category}</span></td>
+                    <td>
+                      {tx.type === 'INCOME' ? (
+                        <span className="tx-type income"><ArrowUpRight size={16} /> Income</span>
+                      ) : (
+                        <span className="tx-type expense"><ArrowDownRight size={16} /> Expense</span>
+                      )}
+                    </td>
+                    <td className={`tx-amount ${tx.type.toLowerCase()}`}>
+                      {tx.type === 'INCOME' ? '+' : '-'}₹{tx.amount?.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <style>{`
         .dashboard-page {
@@ -317,6 +332,7 @@ const DashboardPage = () => {
           justify-content: center;
           color: var(--text-muted);
           font-size: 0.9rem;
+          gap: 0.5rem;
         }
 
         .btn-link {
@@ -346,10 +362,38 @@ const DashboardPage = () => {
         .tx-amount.income { color: var(--accent-emerald); }
         .tx-amount.expense { color: var(--accent-rose); }
 
-        .loading-container, .empty-state-text {
+        .empty-state-text {
           padding: 3rem;
           text-align: center;
           color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+        }
+
+        .skeleton-line {
+          display: inline-block;
+          width: 80px;
+          height: 24px;
+          background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+          background-size: 200% 100%;
+          border-radius: var(--radius-sm);
+          animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        .spinning {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
 
         .btn-sm {
