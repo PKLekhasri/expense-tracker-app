@@ -397,19 +397,20 @@ const LoansPage = () => {
         }
 
         .type-btn.active-expense {
-          background-color: rgba(244, 63, 94, 0.2);
+          background-color: #fff1f2;
           border-color: var(--accent-rose);
           color: var(--accent-rose);
         }
 
         .type-btn.active-income {
-          background-color: rgba(16, 185, 129, 0.2);
+          background-color: #f0fdf4;
           border-color: var(--accent-emerald);
           color: var(--accent-emerald);
         }
 
         .repay-info-banner {
-          background-color: var(--bg-primary);
+          background-color: #f8fafc;
+          border: 1px solid var(--border-color);
           padding: 0.85rem;
           border-radius: var(--radius-sm);
           font-size: 0.9rem;
@@ -500,7 +501,8 @@ const LoanCard = ({ loan, onRepay }) => {
         }
 
         .loan-body-metrics {
-          background-color: var(--bg-primary);
+          background-color: #f8fafc;
+          border: 1px solid var(--border-color);
           padding: 0.75rem 1rem;
           border-radius: var(--radius-sm);
           display: flex;

@@ -85,12 +85,12 @@ const LoginPage = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.1), transparent), var(--bg-primary);
+          background: radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent), #f8fafc;
           padding: 1.5rem;
         }
 
         .auth-card {
-          background-color: var(--bg-secondary);
+          background-color: #ffffff;
           border: 1px solid var(--border-color);
           border-radius: var(--radius-lg);
           padding: 2.5rem;
@@ -108,7 +108,7 @@ const LoginPage = () => {
           width: 48px;
           height: 48px;
           border-radius: var(--radius-md);
-          background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan));
+          background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
           color: white;
           font-weight: 800;
           font-size: 1.5rem;
@@ -131,8 +131,8 @@ const LoginPage = () => {
         }
 
         .auth-error {
-          background-color: rgba(244, 63, 94, 0.15);
-          border: 1px solid var(--accent-rose);
+          background-color: #fff1f2;
+          border: 1px solid #fecdd3;
           color: var(--accent-rose);
           padding: 0.75rem 1rem;
           border-radius: var(--radius-sm);
@@ -165,7 +165,7 @@ const LoginPage = () => {
         }
 
         .auth-footer a {
-          color: var(--accent-emerald);
+          color: var(--accent-blue);
           font-weight: 700;
           text-decoration: none;
         }

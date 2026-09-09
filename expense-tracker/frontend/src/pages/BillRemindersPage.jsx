@@ -329,7 +329,8 @@ const BillRemindersPage = () => {
         }
 
         .bill-details {
-          background-color: var(--bg-primary);
+          background-color: #f8fafc;
+          border: 1px solid var(--border-color);
           padding: 0.85rem;
           border-radius: var(--radius-sm);
           margin-bottom: 1rem;

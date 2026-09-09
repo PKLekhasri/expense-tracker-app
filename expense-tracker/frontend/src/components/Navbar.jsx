@@ -45,7 +45,7 @@ const Navbar = ({ onToggleSidebar }) => {
       <style>{`
         .top-navbar {
           height: 64px;
-          background-color: var(--bg-secondary);
+          background-color: #ffffff;
           border-bottom: 1px solid var(--border-color);
           display: flex;
           align-items: center;
@@ -78,7 +78,7 @@ const Navbar = ({ onToggleSidebar }) => {
 
         .notification-bell-btn {
           position: relative;
-          background: var(--bg-input);
+          background: #f8fafc;
           border: 1px solid var(--border-color);
           color: var(--text-primary);
           width: 40px;
@@ -92,8 +92,9 @@ const Navbar = ({ onToggleSidebar }) => {
         }
 
         .notification-bell-btn:hover {
-          border-color: var(--accent-emerald);
-          color: var(--accent-emerald);
+          border-color: var(--accent-blue);
+          color: var(--accent-blue);
+          background-color: #ffffff;
         }
 
         .notification-badge {
@@ -110,7 +111,7 @@ const Navbar = ({ onToggleSidebar }) => {
           display: flex;
           align-items: center;
           justify-content: center;
-          border: 2px solid var(--bg-secondary);
+          border: 2px solid #ffffff;
         }
 
         @media (max-width: 992px) {

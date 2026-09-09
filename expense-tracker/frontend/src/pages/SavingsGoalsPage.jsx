@@ -263,7 +263,8 @@ const SavingsGoalsPage = () => {
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
           gap: 0.5rem;
-          background-color: var(--bg-primary);
+          background-color: #f8fafc;
+          border: 1px solid var(--border-color);
           padding: 0.85rem;
           border-radius: var(--radius-sm);
           margin-bottom: 1rem;
@@ -288,7 +289,7 @@ const SavingsGoalsPage = () => {
         .progress-text {
           font-size: 0.8rem;
           font-weight: 700;
-          color: var(--accent-cyan);
+          color: var(--accent-blue);
           text-align: right;
         }
 

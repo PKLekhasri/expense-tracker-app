@@ -461,9 +461,9 @@ const SharedExpensesPage = () => {
         }
 
         .group-tab-btn.active {
-          background-color: rgba(16, 185, 129, 0.15);
-          border-color: var(--accent-emerald);
-          color: var(--accent-emerald);
+          background-color: rgba(37, 99, 235, 0.1);
+          border-color: var(--accent-blue);
+          color: var(--accent-blue);
         }
 
         .member-tags {
@@ -486,8 +486,8 @@ const SharedExpensesPage = () => {
 
         .all-settled-box {
           padding: 1rem;
-          background-color: rgba(16, 185, 129, 0.1);
-          border: 1px solid var(--accent-emerald);
+          background-color: #f0fdf4;
+          border: 1px solid #bbf7d0;
           border-radius: var(--radius-sm);
           color: var(--accent-emerald);
           font-weight: 600;
@@ -505,7 +505,8 @@ const SharedExpensesPage = () => {
           align-items: center;
           justify-content: space-between;
           padding: 0.85rem 1rem;
-          background-color: var(--bg-primary);
+          background-color: #f8fafc;
+          border: 1px solid var(--border-color);
           border-radius: var(--radius-sm);
         }
 
@@ -524,7 +525,8 @@ const SharedExpensesPage = () => {
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
-          background: var(--bg-primary);
+          background: #f8fafc;
+          border: 1px solid var(--border-color);
           padding: 0.85rem;
           border-radius: var(--radius-sm);
         }

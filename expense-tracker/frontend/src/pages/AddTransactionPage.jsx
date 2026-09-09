@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Toast from '../components/Toast';
-import { PlusCircle, ArrowLeft } from 'lucide-react';
+import ReceiptUploadModal from '../components/ReceiptUploadModal';
+import { PlusCircle, ArrowLeft, FileText, Sparkles } from 'lucide-react';
 
 const CATEGORIES = [
   'Food',
@@ -26,6 +27,7 @@ const AddTransactionPage = () => {
   const [type, setType] = useState('EXPENSE');
   
   const [submitting, setSubmitting] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const navigate = useNavigate();
 
@@ -63,11 +65,38 @@ const AddTransactionPage = () => {
     <div className="add-transaction-page">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '', type: 'success' })} />
 
+      <ReceiptUploadModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        onTransactionAdded={() => {
+          setToast({ message: 'Expense extracted & added from receipt!', type: 'success' });
+          setTimeout(() => navigate('/dashboard'), 1200);
+        }}
+      />
+
       <div className="page-header">
         <button className="btn-back" onClick={() => navigate('/dashboard')}>
           <ArrowLeft size={18} /> Back
         </button>
         <h1 className="page-title">Add Transaction</h1>
+      </div>
+
+      {/* Auto Receipt Upload Banner */}
+      <div className="receipt-upload-banner">
+        <div className="banner-info">
+          <Sparkles className="banner-icon" size={22} />
+          <div>
+            <div className="banner-title">Have a receipt photo?</div>
+            <div className="banner-sub">Auto-extract amount, vendor, date & category from bill image</div>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary banner-btn"
+          onClick={() => setIsReceiptModalOpen(true)}
+        >
+          <FileText size={16} /> Scan Receipt
+        </button>
       </div>
 
       <div className="card form-card">
@@ -170,8 +199,50 @@ const AddTransactionPage = () => {
           margin-bottom: 0.5rem;
         }
 
-        .form-card {
+        .receipt-upload-banner {
+          background: linear-gradient(135deg, #eff6ff, #e0e7ff);
+          border: 1px solid #c7d2fe;
+          border-radius: var(--radius-md);
+          padding: 1rem 1.25rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
           margin-top: 1rem;
+          margin-bottom: 1rem;
+          flex-wrap: wrap;
+        }
+
+        .banner-info {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .banner-icon {
+          color: var(--accent-blue);
+          flex-shrink: 0;
+        }
+
+        .banner-title {
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        .banner-sub {
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+        }
+
+        .banner-btn {
+          height: 38px;
+          font-size: 0.85rem;
+          background-color: #ffffff;
+        }
+
+        .form-card {
+          margin-top: 0.5rem;
         }
 
         .type-toggle-grid {
@@ -192,13 +263,13 @@ const AddTransactionPage = () => {
         }
 
         .type-btn.active-expense {
-          background-color: rgba(244, 63, 94, 0.2);
+          background-color: #fff1f2;
           border-color: var(--accent-rose);
           color: var(--accent-rose);
         }
 
         .type-btn.active-income {
-          background-color: rgba(16, 185, 129, 0.2);
+          background-color: #f0fdf4;
           border-color: var(--accent-emerald);
           color: var(--accent-emerald);
         }

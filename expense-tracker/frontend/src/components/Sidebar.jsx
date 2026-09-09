@@ -83,14 +83,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         .sidebar-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(15, 23, 42, 0.4);
           backdrop-filter: blur(4px);
           z-index: 99;
         }
 
         .sidebar {
           width: 260px;
-          background-color: var(--bg-secondary);
+          background-color: #ffffff;
           border-right: 1px solid var(--border-color);
           display: flex;
           flex-direction: column;
@@ -119,7 +119,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           width: 36px;
           height: 36px;
           border-radius: var(--radius-sm);
-          background: linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan));
+          background: linear-gradient(135deg, var(--accent-blue), var(--accent-indigo));
           color: white;
           font-weight: 800;
           font-size: 1.25rem;
@@ -140,7 +140,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          background-color: rgba(15, 23, 42, 0.5);
+          background-color: #f8fafc;
           border-bottom: 1px solid var(--border-color);
         }
 
@@ -148,7 +148,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           width: 36px;
           height: 36px;
           border-radius: var(--radius-full);
-          background-color: var(--accent-indigo);
+          background-color: var(--accent-blue);
           color: white;
           font-weight: 700;
           display: flex;
@@ -200,8 +200,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         }
 
         .nav-link.active {
-          background-color: rgba(16, 185, 129, 0.15);
-          color: var(--accent-emerald);
+          background-color: rgba(37, 99, 235, 0.1);
+          color: var(--accent-blue);
           font-weight: 700;
         }
 
@@ -211,7 +211,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         }
 
         .logout-btn:hover {
-          background-color: rgba(244, 63, 94, 0.15);
+          background-color: rgba(225, 29, 72, 0.1);
           color: var(--accent-rose);
         }
 

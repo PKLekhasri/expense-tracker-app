@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import Modal from '../components/Modal';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -217,7 +217,7 @@ const CalendarPage = () => {
         }
 
         .calendar-day {
-          background-color: var(--bg-card);
+          background-color: #ffffff;
           min-height: 90px;
           padding: 0.5rem;
           display: flex;
@@ -228,16 +228,16 @@ const CalendarPage = () => {
         }
 
         .calendar-day:hover {
-          background-color: var(--bg-card-hover);
+          background-color: #f1f5f9;
         }
 
         .calendar-day.empty {
-          background-color: var(--bg-primary);
+          background-color: #f8fafc;
           cursor: default;
         }
 
         .calendar-day.today {
-          border: 2px solid var(--accent-emerald);
+          border: 2px solid var(--accent-blue);
         }
 
         .day-number {
@@ -284,7 +284,8 @@ const CalendarPage = () => {
           align-items: center;
           justify-content: space-between;
           padding: 0.85rem;
-          background-color: var(--bg-primary);
+          background-color: #f8fafc;
+          border: 1px solid var(--border-color);
           border-radius: var(--radius-sm);
         }
 
@@ -303,8 +304,8 @@ const CalendarPage = () => {
           justify-content: center;
         }
 
-        .tx-icon.income { background-color: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
-        .tx-icon.expense { background-color: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
+        .tx-icon.income { background-color: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); }
+        .tx-icon.expense { background-color: rgba(225, 29, 72, 0.12); color: var(--accent-rose); }
 
         .tx-desc {
           font-weight: 700;

@@ -20,7 +20,7 @@ const Modal = ({ isOpen, title, onClose, children }) => {
         .modal-overlay {
           position: fixed;
           inset: 0;
-          background-color: rgba(0, 0, 0, 0.7);
+          background-color: rgba(15, 23, 42, 0.4);
           backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
@@ -30,11 +30,11 @@ const Modal = ({ isOpen, title, onClose, children }) => {
         }
 
         .modal-card {
-          background-color: var(--bg-secondary);
+          background-color: #ffffff;
           border: 1px solid var(--border-color);
           border-radius: var(--radius-md);
           width: 100%;
-          max-width: 500px;
+          max-width: 520px;
           box-shadow: var(--shadow-lg);
           overflow: hidden;
           animation: modalPop 0.2s ease;

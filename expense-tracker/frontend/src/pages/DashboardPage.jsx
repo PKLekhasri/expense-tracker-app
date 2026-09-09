@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import ReceiptUploadModal from '../components/ReceiptUploadModal';
 import {
   Wallet,
   TrendingDown,
@@ -8,7 +9,7 @@ import {
   PiggyBank,
   Filter,
   Plus,
-  Bell,
+  FileText,
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
@@ -26,7 +27,7 @@ import {
   Legend
 } from 'recharts';
 
-const COLORS = ['#10b981', '#06b6d4', '#6366f1', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6'];
+const COLORS = ['#2563eb', '#10b981', '#0284c7', '#4f46e5', '#d97706', '#e11d48', '#8b5cf6'];
 
 const DashboardPage = () => {
   const [summary, setSummary] = useState(null);
@@ -35,6 +36,7 @@ const DashboardPage = () => {
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [period, setPeriod] = useState('current_month');
   const [loading, setLoading] = useState(true);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -64,6 +66,12 @@ const DashboardPage = () => {
 
   return (
     <div className="dashboard-page">
+      <ReceiptUploadModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        onTransactionAdded={() => fetchDashboardData()}
+      />
+
       {/* Header & Period Filter */}
       <div className="page-header">
         <div>
@@ -82,6 +90,10 @@ const DashboardPage = () => {
             <option value="previous_month">Previous Month</option>
             <option value="current_year">Current Year</option>
           </select>
+
+          <button className="btn btn-secondary" onClick={() => setIsReceiptModalOpen(true)}>
+            <FileText size={18} /> Upload Receipt
+          </button>
 
           <button className="btn btn-primary" onClick={() => navigate('/add-transaction')}>
             <Plus size={18} /> Add Transaction
@@ -173,13 +185,13 @@ const DashboardPage = () => {
               <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer>
                   <BarChart data={trend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                    <XAxis dataKey="month" stroke="#94a3b8" />
-                    <YAxis stroke="#94a3b8" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="month" stroke="#475569" />
+                    <YAxis stroke="#475569" />
                     <Tooltip formatter={(val) => `₹${val.toLocaleString()}`} />
                     <Legend />
                     <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="expense" name="Expense" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expense" name="Expense" fill="#e11d48" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -190,11 +202,16 @@ const DashboardPage = () => {
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">Recent Transactions</h3>
-              <button className="btn-link" onClick={() => navigate('/calendar')}>View All</button>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => setIsReceiptModalOpen(true)}>
+                  <FileText size={14} /> Scan Receipt
+                </button>
+                <button className="btn-link" onClick={() => navigate('/calendar')}>View All</button>
+              </div>
             </div>
 
             {recentTransactions.length === 0 ? (
-              <div className="empty-state-text">No recent transactions. Add one to get started!</div>
+              <div className="empty-state-text">No recent transactions. Add one or scan a receipt to get started!</div>
             ) : (
               <div className="table-responsive">
                 <table className="table">
@@ -264,6 +281,7 @@ const DashboardPage = () => {
           display: flex;
           align-items: center;
           gap: 0.75rem;
+          flex-wrap: wrap;
         }
 
         .filter-icon {
@@ -271,13 +289,13 @@ const DashboardPage = () => {
         }
 
         .period-select {
-          width: 180px;
+          width: 170px;
         }
 
         .savings-pct {
           font-size: 0.85rem;
           font-weight: 600;
-          color: var(--accent-cyan);
+          color: var(--accent-blue);
         }
 
         .charts-grid {
@@ -304,7 +322,7 @@ const DashboardPage = () => {
         .btn-link {
           background: none;
           border: none;
-          color: var(--accent-emerald);
+          color: var(--accent-blue);
           font-weight: 700;
           font-size: 0.875rem;
           cursor: pointer;
@@ -332,6 +350,12 @@ const DashboardPage = () => {
           padding: 3rem;
           text-align: center;
           color: var(--text-secondary);
+        }
+
+        .btn-sm {
+          height: 34px;
+          padding: 0 0.85rem;
+          font-size: 0.85rem;
         }
       `}</style>
     </div>

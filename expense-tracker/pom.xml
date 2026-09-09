@@ -23,6 +23,7 @@
         <jwt.version>0.11.5</jwt.version>
         <poi.version>5.2.5</poi.version>
         <openpdf.version>1.3.30</openpdf.version>
+        <tess4j.version>5.9.0</tess4j.version>
     </properties>
 
     <dependencies>
@@ -64,6 +65,27 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- OCR: Tess4J -->
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>${tess4j.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jul-to-slf4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>log4j-over-slf4j</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Database Connectors: MySQL & H2 -->

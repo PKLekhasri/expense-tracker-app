@@ -140,14 +140,14 @@ const NotificationsPage = () => {
         }
 
         .notification-card.unread {
-          border-left: 4px solid var(--accent-emerald);
-          background-color: var(--bg-card-hover);
+          border-left: 4px solid var(--accent-blue);
+          background-color: #eff6ff;
         }
 
         .notification-card.overdue-notif {
           border: 2px solid var(--accent-rose) !important;
           border-left: 6px solid var(--accent-rose) !important;
-          background-color: rgba(244, 63, 94, 0.08) !important;
+          background-color: #fff5f5 !important;
         }
 
         .notif-header {
@@ -164,7 +164,7 @@ const NotificationsPage = () => {
         }
 
         .notif-icon.overdue { color: var(--accent-rose); }
-        .notif-icon.info { color: var(--accent-emerald); }
+        .notif-icon.info { color: var(--accent-blue); }
 
         .notif-title {
           font-size: 1.05rem;
@@ -192,7 +192,7 @@ const NotificationsPage = () => {
         .btn-mark-read {
           background: none;
           border: none;
-          color: var(--accent-emerald);
+          color: var(--accent-blue);
           font-size: 0.85rem;
           font-weight: 700;
           cursor: pointer;

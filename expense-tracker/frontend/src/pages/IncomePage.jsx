@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import Toast from '../components/Toast';
-import { Wallet, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -166,7 +166,7 @@ const IncomePage = () => {
         }
 
         .income-header-banner {
-          background-color: var(--bg-primary);
+          background-color: #f8fafc;
           border: 1px solid var(--border-color);
           border-radius: var(--radius-sm);
           padding: 1.25rem;

@@ -1,13 +1,16 @@
 package com.example.expensetracker.controller;
 
 import com.example.expensetracker.dto.ApiResponse;
+import com.example.expensetracker.dto.ReceiptScanDto;
 import com.example.expensetracker.dto.TransactionDto;
+import com.example.expensetracker.service.ReceiptOcrService;
 import com.example.expensetracker.service.TransactionService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -18,6 +21,9 @@ public class TransactionController {
 
     @Autowired
     private TransactionService transactionService;
+
+    @Autowired
+    private ReceiptOcrService receiptOcrService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<TransactionDto>>> getAllTransactions(
@@ -43,6 +49,12 @@ public class TransactionController {
     public ResponseEntity<ApiResponse<TransactionDto>> createTransaction(@Valid @RequestBody TransactionDto dto) {
         TransactionDto created = transactionService.createTransaction(dto);
         return ResponseEntity.ok(ApiResponse.success("Transaction added successfully", created));
+    }
+
+    @PostMapping("/upload-receipt")
+    public ResponseEntity<ApiResponse<ReceiptScanDto>> uploadReceipt(@RequestParam("file") MultipartFile file) {
+        ReceiptScanDto result = receiptOcrService.scanReceipt(file);
+        return ResponseEntity.ok(ApiResponse.success("Receipt scanned successfully", result));
     }
 
     @PutMapping("/{id}")
