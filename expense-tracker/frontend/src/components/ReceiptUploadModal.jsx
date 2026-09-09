@@ -61,10 +61,10 @@ const ReceiptUploadModal = ({ isOpen, onClose, onTransactionAdded }) => {
       if (res.success && res.data) {
         const data = res.data;
         setScanResult(data);
-        if (data.amount) setAmount(data.amount.toString());
-        if (data.merchantName) setDescription(data.merchantName);
-        if (data.date) setDate(data.date);
-        if (data.guessedCategory) setCategory(data.guessedCategory);
+        setAmount(data.amount != null ? data.amount.toString() : '');
+        setDescription(data.merchantName != null ? data.merchantName : '');
+        setDate(data.date != null ? data.date : new Date().toISOString().split('T')[0]);
+        setCategory(data.guessedCategory != null ? data.guessedCategory : 'Other');
       } else {
         setErrorMsg(res.message || 'Could not process receipt');
       }
@@ -178,7 +178,7 @@ const ReceiptUploadModal = ({ isOpen, onClose, onTransactionAdded }) => {
               <CheckCircle2 size={20} className="check-icon" />
               <div>
                 <div className="scan-status-title">
-                  {scanResult.amount ? 'Receipt Scanned Successfully' : 'Partial Receipt Details Extracted'}
+                  {scanResult.amount && scanResult.merchantName ? '✓ Receipt Scanned Successfully' : '✓ Extracted Information'}
                 </div>
                 <div className="scan-status-msg">{scanResult.message}</div>
               </div>
@@ -190,7 +190,7 @@ const ReceiptUploadModal = ({ isOpen, onClose, onTransactionAdded }) => {
                 type="number"
                 step="0.01"
                 className="form-control"
-                placeholder="e.g. 450.00"
+                placeholder={scanResult.amount ? "e.g. 450.00" : "Not detected — enter amount manually"}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
@@ -202,7 +202,7 @@ const ReceiptUploadModal = ({ isOpen, onClose, onTransactionAdded }) => {
               <input
                 type="text"
                 className="form-control"
-                placeholder="e.g. Starbucks Coffee"
+                placeholder={scanResult.merchantName ? "e.g. Starbucks Coffee" : "Not detected — enter store name"}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required

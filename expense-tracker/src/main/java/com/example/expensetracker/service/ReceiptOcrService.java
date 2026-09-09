@@ -121,17 +121,19 @@ public class ReceiptOcrService {
             message = "Receipt scanned successfully.";
         } else if (amountDetected) {
             message = "Total amount extracted. Please verify merchant details.";
+        } else if (merchantDetected) {
+            message = "Merchant extracted. Could not confidently detect total amount. Please enter manually.";
         } else {
-            message = "Could not confidently detect total amount. Please enter the amount manually.";
+            message = "Could not confidently detect total amount or merchant. Please enter details manually.";
         }
 
         return new ReceiptScanDto(
                 extractedAmount,
                 merchantName,
-                date != null ? date : LocalDate.now(),
+                date,
                 category,
                 rawText.trim(),
-                ocrSuccess ? 0.90 : 0.60,
+                ocrSuccess ? 0.90 : 0.50,
                 amountDetected || merchantDetected,
                 message
         );
@@ -140,9 +142,9 @@ public class ReceiptOcrService {
     private BigDecimal extractTotalAmount(String text) {
         if (text == null || text.trim().isEmpty()) return null;
 
-        // 1. Priority: Match Explicit Grand Total / Total Payable labels
+        // 1. Priority: Match Explicit Grand Total / Total Amount / Amount Payable / Net Total labels
         Pattern grandTotalPattern = Pattern.compile(
-                "(?i)(?:grand total|total amount|amount due|balance due|net total|total payable|payable|to pay)\\D*?([₹$€£]|rs\\.?|inr)?\\s*(\\d{1,6}(?:[\\.,]\\d{2})?)",
+                "(?i)(?:grand\\s+total|total\\s+amount|amount\\s+payable|net\\s+total|net\\s+amount|balance\\s+due|amount\\s+due|total\\s+payable|to\\s+pay|final\\s+total)\\D*?([₹$€£]|rs\\.?|inr\\.?)?\\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?|[0-9]+(?:\\.[0-9]{1,2})?)",
                 Pattern.CASE_INSENSITIVE
         );
         Matcher matcher = grandTotalPattern.matcher(text);
@@ -167,7 +169,7 @@ public class ReceiptOcrService {
 
         // 2. Secondary: Match general "TOTAL" keyword
         Pattern generalTotalPattern = Pattern.compile(
-                "(?i)(?:total|sum|amt)\\D*?([₹$€£]|rs\\.?|inr)?\\s*(\\d{1,6}(?:[\\.,]\\d{2})?)",
+                "(?i)(?:total|sum|amt|amount)\\D*?([₹$€£]|rs\\.?|inr\\.?)?\\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\\.[0-9]{1,2})?|[0-9]+(?:\\.[0-9]{1,2})?)",
                 Pattern.CASE_INSENSITIVE
         );
         Matcher genMatcher = generalTotalPattern.matcher(text);
@@ -190,14 +192,15 @@ public class ReceiptOcrService {
             return genAmounts.stream().max(BigDecimal::compareTo).orElse(null);
         }
 
-        // 3. Fallback: Find standalone decimal numbers with 2 decimal places (e.g., 450.00, 1250.50)
-        Pattern standalonePattern = Pattern.compile("(?:^|\\s)(?:[₹$€£]|rs\\.?|inr)?\\s*(\\d{1,6}\\.\\d{2})(?:\\s|$)", Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
+        // 3. Fallback: Standalone currency numbers (e.g. ₹499.90, Rs. 450.00, INR 1250)
+        Pattern standalonePattern = Pattern.compile("(?:^|\\s)(?:[₹$€£]|rs\\.?|inr\\.?)?\\s*([0-9]{1,3}(?:,[0-9]{3})*\\.[0-9]{2}|[0-9]+\\.[0-9]{2})(?:\\s|$)", Pattern.MULTILINE | Pattern.CASE_INSENSITIVE);
         Matcher numMatcher = standalonePattern.matcher(text);
         List<BigDecimal> standaloneAmounts = new ArrayList<>();
 
         while (numMatcher.find()) {
             try {
-                BigDecimal bd = new BigDecimal(numMatcher.group(1));
+                String cleanNum = numMatcher.group(1).replaceAll("[^0-9\\.]", "");
+                BigDecimal bd = new BigDecimal(cleanNum);
                 if (bd.compareTo(BigDecimal.ZERO) > 0) {
                     standaloneAmounts.add(bd);
                 }
@@ -208,24 +211,25 @@ public class ReceiptOcrService {
             return standaloneAmounts.stream().max(BigDecimal::compareTo).orElse(null);
         }
 
-        // Never return 0 if amount is unreadable
+        // Return null if amount cannot be detected with confidence (never return 0)
         return null;
     }
 
     private String extractMerchantName(String text) {
-        if (text == null || text.trim().isEmpty()) return "Store Purchase";
+        if (text == null || text.trim().isEmpty()) return null;
 
         String[] lines = text.split("\\r?\\n");
-        for (int i = 0; i < Math.min(lines.length, 8); i++) {
+        for (int i = 0; i < Math.min(lines.length, 10); i++) {
             String trimmed = lines[i].trim();
             if (trimmed.length() < 3) continue;
 
             String lower = trimmed.toLowerCase(Locale.ENGLISH);
-            // Skip common receipt header words
+            // Skip generic receipt header noise
             if (lower.contains("receipt") || lower.contains("tax invoice") || lower.contains("welcome") ||
                 lower.contains("cash memo") || lower.contains("customer copy") || lower.contains("date") ||
-                lower.contains("tel:") || lower.contains("phone") || lower.contains("gst") ||
-                lower.contains("thank you") || lower.contains("bill no")) {
+                lower.contains("tel:") || lower.contains("phone") || lower.contains("gst") || lower.contains("gstin") ||
+                lower.contains("thank you") || lower.contains("bill no") || lower.contains("order no") ||
+                lower.contains("invoice") || lower.contains("original copy") || lower.contains("duplicate")) {
                 continue;
             }
 
@@ -234,11 +238,26 @@ public class ReceiptOcrService {
                 return cleanName;
             }
         }
-        return "Store Purchase";
+        // Return null if merchant cannot be extracted (never return fake "Store Purchase")
+        return null;
     }
 
     private LocalDate extractDate(String text) {
-        if (text == null || text.trim().isEmpty()) return LocalDate.now();
+        if (text == null || text.trim().isEmpty()) return null;
+
+        // European / Indian format (DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY)
+        Pattern eurPattern = Pattern.compile("\\b(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})\\b");
+        Matcher eurMatcher = eurPattern.matcher(text);
+        if (eurMatcher.find()) {
+            try {
+                int d = Integer.parseInt(eurMatcher.group(1));
+                int m = Integer.parseInt(eurMatcher.group(2));
+                int y = Integer.parseInt(eurMatcher.group(3));
+                if (d >= 1 && d <= 31 && m >= 1 && m <= 12) {
+                    return LocalDate.of(y, m, d);
+                }
+            } catch (Exception ignored) {}
+        }
 
         // ISO format (YYYY-MM-DD)
         Pattern isoPattern = Pattern.compile("\\b(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})\\b");
@@ -248,23 +267,56 @@ public class ReceiptOcrService {
                 int y = Integer.parseInt(isoMatcher.group(1));
                 int m = Integer.parseInt(isoMatcher.group(2));
                 int d = Integer.parseInt(isoMatcher.group(3));
-                return LocalDate.of(y, m, d);
+                if (d >= 1 && d <= 31 && m >= 1 && m <= 12) {
+                    return LocalDate.of(y, m, d);
+                }
             } catch (Exception ignored) {}
         }
 
-        // European / Indian format (DD/MM/YYYY)
-        Pattern eurPattern = Pattern.compile("\\b(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{4})\\b");
-        Matcher eurMatcher = eurPattern.matcher(text);
-        if (eurMatcher.find()) {
+        // Textual format: "09 Sep 2026" or "09-Sep-2026"
+        Pattern textDatePattern1 = Pattern.compile("(?i)\\b(\\d{1,2})[\\s/-]+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\\s/-]+(\\d{4})\\b");
+        Matcher textMatcher1 = textDatePattern1.matcher(text);
+        if (textMatcher1.find()) {
             try {
-                int d = Integer.parseInt(eurMatcher.group(1));
-                int m = Integer.parseInt(eurMatcher.group(2));
-                int y = Integer.parseInt(eurMatcher.group(3));
-                return LocalDate.of(y, m, d);
+                int d = Integer.parseInt(textMatcher1.group(1));
+                String monthStr = textMatcher1.group(2).toLowerCase(Locale.ENGLISH);
+                int y = Integer.parseInt(textMatcher1.group(3));
+                int m = parseMonthName(monthStr);
+                if (m > 0) return LocalDate.of(y, m, d);
             } catch (Exception ignored) {}
         }
 
-        return LocalDate.now();
+        // Textual format: "September 9, 2026" or "Sep 9 2026"
+        Pattern textDatePattern2 = Pattern.compile("(?i)\\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\\s/-]+(\\d{1,2}),?[\\s/-]+(\\d{4})\\b");
+        Matcher textMatcher2 = textDatePattern2.matcher(text);
+        if (textMatcher2.find()) {
+            try {
+                String monthStr = textMatcher2.group(1).toLowerCase(Locale.ENGLISH);
+                int d = Integer.parseInt(textMatcher2.group(2));
+                int y = Integer.parseInt(textMatcher2.group(3));
+                int m = parseMonthName(monthStr);
+                if (m > 0) return LocalDate.of(y, m, d);
+            } catch (Exception ignored) {}
+        }
+
+        // Return null if date cannot be extracted (never silently default to today's date)
+        return null;
+    }
+
+    private int parseMonthName(String month) {
+        if (month.startsWith("jan")) return 1;
+        if (month.startsWith("feb")) return 2;
+        if (month.startsWith("mar")) return 3;
+        if (month.startsWith("apr")) return 4;
+        if (month.startsWith("may")) return 5;
+        if (month.startsWith("jun")) return 6;
+        if (month.startsWith("jul")) return 7;
+        if (month.startsWith("aug")) return 8;
+        if (month.startsWith("sep")) return 9;
+        if (month.startsWith("oct")) return 10;
+        if (month.startsWith("nov")) return 11;
+        if (month.startsWith("dec")) return 12;
+        return 0;
     }
 
     private String guessCategory(String text, String merchantName) {
@@ -274,42 +326,60 @@ public class ReceiptOcrService {
             combined.contains("mcdonald") || combined.contains("burger") || combined.contains("pizza") ||
             combined.contains("bakery") || combined.contains("food") || combined.contains("dining") ||
             combined.contains("swiggy") || combined.contains("zomato") || combined.contains("dominos") ||
-            combined.contains("kfc") || combined.contains("starbucks") || combined.contains("diner")) {
+            combined.contains("kfc") || combined.contains("starbucks") || combined.contains("diner") ||
+            combined.contains("biryani") || combined.contains("hotel") || combined.contains("kitchen") || combined.contains("mess")) {
             return "Food";
         }
 
         if (combined.contains("uber") || combined.contains("ola") || combined.contains("taxi") ||
-            combined.contains("fuel") || combined.contains("petrol") || combined.contains("shell") ||
+            combined.contains("fuel") || combined.contains("petrol") || combined.contains("diesel") ||
+            combined.contains("shell") || combined.contains("hp") || combined.contains("iocl") || combined.contains("bpcl") ||
             combined.contains("metro") || combined.contains("parking") || combined.contains("bus") ||
-            combined.contains("toll") || combined.contains("flight") || combined.contains("railway")) {
+            combined.contains("toll") || combined.contains("flight") || combined.contains("railway") ||
+            combined.contains("auto") || combined.contains("irctc")) {
             return "Transport";
         }
 
-        if (combined.contains("amazon") || combined.contains("walmart") || combined.contains("target") ||
-            combined.contains("mart") || combined.contains("supermarket") || combined.contains("store") ||
-            combined.contains("apparel") || combined.contains("fashion") || combined.contains("mall") ||
-            combined.contains("retail") || combined.contains("clothing")) {
+        if (combined.contains("amazon") || combined.contains("flipkart") || combined.contains("myntra") ||
+            combined.contains("walmart") || combined.contains("target") || combined.contains("supermarket") ||
+            combined.contains("store") || combined.contains("apparel") || combined.contains("fashion") ||
+            combined.contains("mall") || combined.contains("retail") || combined.contains("clothing") ||
+            combined.contains("dmart") || combined.contains("reliance") || combined.contains("bigbasket") ||
+            combined.contains("grocery") || combined.contains("spencers")) {
             return "Shopping";
         }
 
         if (combined.contains("pharmacy") || combined.contains("chemist") || combined.contains("hospital") ||
             combined.contains("clinic") || combined.contains("doctor") || combined.contains("medical") ||
-            combined.contains("health") || combined.contains("apollo")) {
+            combined.contains("health") || combined.contains("apollo") || combined.contains("medplus") ||
+            combined.contains("diagnostics") || combined.contains("wellness")) {
             return "Healthcare";
         }
 
         if (combined.contains("electricity") || combined.contains("water") || combined.contains("internet") ||
-            combined.contains("wifi") || combined.contains("airtel") || combined.contains("jio") ||
-            combined.contains("utility") || combined.contains("bill")) {
+            combined.contains("wifi") || combined.contains("airtel") || combined.contains("jio") || combined.contains("vi") ||
+            combined.contains("utility") || combined.contains("bill") || combined.contains("recharge") || combined.contains("gas")) {
             return "Bills";
         }
 
+        if (combined.contains("school") || combined.contains("college") || combined.contains("tuition") ||
+            combined.contains("book") || combined.contains("university") || combined.contains("udemy") ||
+            combined.contains("coursera") || combined.contains("education")) {
+            return "Education";
+        }
+
         if (combined.contains("cinema") || combined.contains("movie") || combined.contains("pvr") ||
-            combined.contains("theater") || combined.contains("event") || combined.contains("game") ||
-            combined.contains("ticket")) {
+            combined.contains("inox") || combined.contains("theater") || combined.contains("event") ||
+            combined.contains("ticket") || combined.contains("game") || combined.contains("netflix") ||
+            combined.contains("hotstar")) {
             return "Entertainment";
         }
 
-        return "Food";
+        if (combined.contains("rent") || combined.contains("deposit")) {
+            return "Rent";
+        }
+
+        // Return Other for unrecognized receipts (never default to Shopping or Food)
+        return "Other";
     }
 }
